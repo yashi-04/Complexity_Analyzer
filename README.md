@@ -1,101 +1,134 @@
-# **Project Documentation: Complexity Analyzer for C Code**  
+# CompO-meter: C Code Complexity Analyzer
 
----
+## Description
+CompO-meter is a sophisticated tool that analyzes C code to determine its time and space complexity. It provides a modern web interface where developers can paste their C code and receive detailed complexity analysis reports.
 
-## **1. Project Overview**  
-### **1.1 Description**  
-A static analysis tool that estimates **time and space complexity** of C programs by analyzing code structure (loops, recursion, memory ops) without execution.  
+## Features
+- **Modern Web Interface**: Built with React and Tailwind CSS
+- **Real-time Analysis**: Instant complexity analysis of C code
+- **Advanced Pattern Detection**:
+  - Classic algorithm recognition (merge sort, quick sort, binary search, etc.)
+  - Generic structural analysis for custom code
+  - Recursive function detection
+  - Loop nesting analysis
+  - Memory allocation tracking
+- **Detailed Reports**: 
+  - Overall Time and Space Complexity
+  - Best, Average, and Worst-case complexities
+  - Line-by-line complexity breakdown
+  - Explanations for complexity calculations
+  - AST visualization (optional)
+- **Downloadable Reports**: Export analysis results in PDF format
+- **Robust Error Handling**: Comprehensive error detection and reporting
 
-### **1.2 Key Features**  
-- Function-level complexity reports  
-- Loop nesting detection  
-- Recursion identification  
-- Memory allocation tracking (malloc/arrays)  
-- Big-O notation estimation  
-- Text + JSON output formats  
-
----
-
-## **2. Technology Stack**  
-| **Component**       | **Technology/Tool** | **Usage %** |  
-|---------------------|---------------------|-------------|  
-| Core Language       | C (ANSI C11)        | 100%        |  
-| Compiler            | GCC                 | 30%         |  
-| Build System        | Make                | 15%         |  
-| Version Control     | Git                 | 10%         |  
-| Debugging           | Valgrind            | 5%          |  
-
----
-
-## **3. System Architecture**  
+## Project Structure
 ```
-flowchart 
-    A[Parser Module] -->|Cleaned Code| B[Analyzer Module]  
-    B -->|Analysis Metrics| C[Reporter Module]  
-```  
+CompO-meter/
+├── frontend/          # React-based web interface
+├── backend/           # Flask server
+├── analyzer/          # Core C-based complexity analyzer
+└── ast_generator/     # AST generation (C++ and Python)
+    ├── cpp/          # C++ AST generator using libclang
+    └── python/       # Python AST processing
+```
 
-### **3.1 Modules**  
-1. **Parser**  
-   - Input: C source file  
-   - Output: Structured code (functions, loops, cleaned lines)  
-   - Key Functions: `analyze_file()`, `is_function_start()`  
+## Prerequisites
+- Python 3.8+
+- Node.js 16+
+- GCC/Clang compiler
+- CMake 3.10+
+- libclang development libraries
+- json-c library (for JSON parsing)
 
-2. **Analyzer**  
-   - Input: Parsed code  
-   - Output: `CodeAnalysis` struct (loop depth, recursion flags, etc.)  
-   - Key Functions: `is_loop_start()`, `is_recursive_call()`  
+## Installation
 
-3. **Reporter**  
-   - Input: Analysis results  
-   - Output: Text/JSON reports  
-   - Key Functions: `print_analysis_report()`, `estimate_complexity()`  
+1. **Clone the repository**
+```bash
+git clone https://github.com/yashi-04/Complexity_Analyzer.git
+cd CompO-meter
+```
 
----
+2. **Set up Python environment**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Unix/macOS
+# or
+.\venv\Scripts\activate  # On Windows
+```
 
-## **4. Team Roles & Responsibilities**  
-### **4.1 Detailed Breakdown**  
-| **Member**   | **Role**          | **Responsibilities**                                                         | **Deliverables**                          |  
-|--------------|-------------------|------------------------------------------------------------------------------|-------------------------------------------|  
-| **Member 1** | Parser Lead       | - File I/O & preprocessing<br>- Function detection<br>- Brace matching       | `analyze_file()`, Cleaned code output     |  
-| **Member 2** | Analyzer Lead     | - Loop/recursion detection<br>- Memory ops tracking<br>- Metrics calculation | `is_loop_start()`, `CodeAnalysis` struct  |  
-| **Member 3** | Reporter Lead     | - Big-O estimation<br>- Report formatting<br>- JSON output                   | `print_analysis_report()`, JSON exporter  |  
+3. **Install Python dependencies**
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
----
+4. **Install Node.js dependencies**
+```bash
+cd ../frontend
+npm install
+```
 
-## **4. Build & Execution**  
-### **4.1 Compilation**  
-* parser.c analyzer.c reporter.c main.c => complexity_analyzer.c
-```bash  
-gcc complexity_analyzer.c -o analyzer   
-```  
+5. **Install json-c library**
+```bash
+# On macOS with Homebrew
+brew install json-c
 
-### **4.2 Usage**  
-```bash  
-./analyzer examples/quick_sort.c  
-```  
-**Sample Output:**  
-```text  
-=== Complexity Report ===  
-Functions: 3 | Loops: 5 | Max Nested: 2  
-Time Complexity: O(n log n)  
-Space Complexity: O(n)  
-```  
+# On Ubuntu/Debian
+sudo apt-get install libjson-c-dev
 
----
+# On Fedora
+sudo dnf install json-c-devel
+```
 
-## **6. Example Test Cases**  
-| **File**           | **Expected Complexity**      |  
-|--------------------|------------------------------|  
-| `linear_search.c`  | Time: O(n), Space: O(1)      |  
-| `binary_tree.c`    | Time: O(log n), Space: O(n)  |  
-| `bubble_sort.c`    | Time: O(n²), Space: O(1)     |  
+6. **Build the AST generator**
+```bash
+cd ../ast_generator/cpp
+mkdir build && cd build
+cmake ..
+make
+```
 
----
+7. **Compile the C analyzer**
+```bash
+cd ../../analyzer
+make
+```
 
-## **7. Contact & Credits**  
-| **Name**                | **Role**          |
-|-------------------------|-------------------|
-| Mansi Rajan Gupta       | Parser Lead       |   
-| Yashi Sharma            | Analyzer Lead     |    
-| Nishtha Gupta           | Reporter Lead     | 
+## Running the Application
+
+1. **Start the backend server**
+```bash
+cd backend
+python app.py
+```
+
+2. **Start the frontend development server**
+```bash
+cd frontend
+npm start
+```
+
+3. **Access the application**
+Open your browser and navigate to `http://localhost:3000`
+
+## Usage
+
+1. **Input Code**: Paste your C code into the text editor
+2. **Analyze**: Click the "Analyze" button
+3. **View Results**: 
+   - Overall complexity metrics
+   - Best, average, and worst-case complexities
+   - Line-by-line breakdown
+   - Complexity explanations
+   - Algorithm pattern detection results
+4. **Download Report**: Click "Download Report" to save the analysis
+
+
+## Contributrs
+- Yashi Sharma
+- Mansi Ranjan Gupta
+- Nishtha Gupta
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
