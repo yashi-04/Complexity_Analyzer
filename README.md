@@ -44,7 +44,7 @@ CompO-meter/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yashi-04/Complexity_Analyzer.git
+git clone https://github.com/yashi-04/CompO-Meter.git
 cd CompO-meter
 ```
 
