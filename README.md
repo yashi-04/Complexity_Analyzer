@@ -17,9 +17,7 @@ CompO-meter is a sophisticated tool that analyzes C code to determine its time a
   - Best, Average, and Worst-case complexities
   - Line-by-line complexity breakdown
   - Explanations for complexity calculations
-  - AST visualization (optional)
-- **Downloadable Reports**: Export analysis results in PDF format
-- **Robust Error Handling**: Comprehensive error detection and reporting
+
 
 ## Project Structure
 ```
@@ -27,9 +25,6 @@ CompO-meter/
 ├── frontend/          # React-based web interface
 ├── backend/           # Flask server
 ├── analyzer/          # Core C-based complexity analyzer
-└── ast_generator/     # AST generation (C++ and Python)
-    ├── cpp/          # C++ AST generator using libclang
-    └── python/       # Python AST processing
 ```
 
 ## Prerequisites
@@ -76,19 +71,10 @@ brew install json-c
 # On Ubuntu/Debian
 sudo apt-get install libjson-c-dev
 
-# On Fedora
-sudo dnf install json-c-devel
+
 ```
 
-6. **Build the AST generator**
-```bash
-cd ../ast_generator/cpp
-mkdir build && cd build
-cmake ..
-make
-```
-
-7. **Compile the C analyzer**
+6. **Compile the C analyzer**
 ```bash
 cd ../../analyzer
 make
@@ -121,7 +107,7 @@ Open your browser and navigate to `http://localhost:3000`
    - Line-by-line breakdown
    - Complexity explanations
    - Algorithm pattern detection results
-4. **Download Report**: Click "Download Report" to save the analysis
+4. **Estimated time to run the program**
 
 
 ## Contributrs
