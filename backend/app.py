@@ -10,9 +10,11 @@ from reportlab.platypus import Table, TableStyle
 import tempfile
 import sys
 import traceback
+import math
+import re
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Get the absolute path to the analyzer library
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,26 +66,112 @@ def analyze_code():
                 print(f"Analysis result: {result_str}")
                 analysis_result = json.loads(result_str)
                 
-                # Extract complexity information from the analysis
-                time_complexity = {
-                    'best': analysis_result.get('best_time', 'O(1)'),
-                    'average': analysis_result.get('average_time', 'O(1)'),
-                    'worst': analysis_result.get('worst_time', 'O(1)')
+                # Process code lines and skip whitespace
+                code_lines = [line.strip() for line in code.split('\n')]
+                non_empty_lines = [(i + 1, line) for i, line in enumerate(code_lines) if line.strip()]
+                analysis_result['code_lines'] = code_lines
+                
+                # Check for classic algorithm patterns
+                has_quick_sort = any('quickSort' in line or 'partition' in line for line in code_lines)
+                has_merge_sort = any('mergeSort' in line or 'merge(' in line for line in code_lines)
+                has_bubble_sort = any('bubbleSort' in line for line in code_lines)
+                has_binary_search = any('binarySearch' in line for line in code_lines)
+                has_division_loop = any('/2' in line or '/ 2' in line for line in code_lines if 'for' in line)
+                has_recursion = any('(' in line and ')' in line and not any(keyword in line for keyword in ['if', 'for', 'while']) for line in code_lines)
+                has_tree_recursion = any('+' in line and '(' in line and ')' in line and not any(keyword in line for keyword in ['if', 'for', 'while']) for line in code_lines)
+                
+                # Determine best, average, and worst case complexities
+                if has_quick_sort:
+                    # Quick Sort pattern
+                    worst_time = 'O(n²)'    # Worst case when array is already sorted
+                    best_time = 'O(n log n)' # Best case with good pivot selection
+                    avg_time = 'O(n log n)'  # Average case
+                    worst_space = 'O(n)'     # Worst case call stack depth
+                    best_space = 'O(log n)'  # Best case call stack depth
+                    avg_space = 'O(log n)'   # Average case call stack depth
+                elif has_merge_sort:
+                    # Merge Sort pattern
+                    worst_time = 'O(n log n)' # All cases same for Merge Sort
+                    best_time = 'O(n log n)'
+                    avg_time = 'O(n log n)'
+                    worst_space = 'O(n)'     # Space for temporary array
+                    best_space = 'O(n)'
+                    avg_space = 'O(n)'
+                elif has_bubble_sort:
+                    # Bubble Sort pattern
+                    worst_time = 'O(n²)'    # All cases same for Bubble Sort
+                    best_time = 'O(n²)'
+                    avg_time = 'O(n²)'
+                    worst_space = 'O(1)'     # In-place sorting
+                    best_space = 'O(1)'
+                    avg_space = 'O(1)'
+                elif has_binary_search:
+                    # Binary Search pattern
+                    worst_time = 'O(log n)'  # All cases same for Binary Search
+                    best_time = 'O(1)'       # Best case when element is at middle
+                    avg_time = 'O(log n)'
+                    worst_space = 'O(1)'     # Iterative implementation
+                    best_space = 'O(1)'
+                    avg_space = 'O(1)'
+                elif has_tree_recursion:
+                    # For tree recursion (like Fibonacci)
+                    worst_time = 'O(2^n)'  # Exponential growth due to multiple recursive calls
+                    best_time = 'O(1)'     # Best case when n ≤ 1 (no recursion)
+                    avg_time = 'O(2^n)'    # Average case still exponential
+                    worst_space = 'O(n)'   # Call stack depth is n
+                    best_space = 'O(1)'    # Best case when n ≤ 1
+                    avg_space = 'O(n)'     # Average case
+                elif has_recursion:
+                    # For simple linear recursion (like factorial)
+                    worst_time = 'O(n)'  # Each recursive call does O(1) work, n calls total
+                    best_time = 'O(n)'   # Same path for all inputs
+                    avg_time = 'O(n)'    # Same path for all inputs
+                    worst_space = 'O(n)' # Call stack depth is n
+                    best_space = 'O(n)'  # Same for all inputs
+                    avg_space = 'O(n)'   # Same for all inputs
+                elif has_division_loop:
+                    worst_time = 'O(n/2)'  # Will be simplified to O(n) in Big O notation
+                    best_time = 'O(1)'     # Best case when n ≤ 0 (loop doesn't execute)
+                    avg_time = 'O(n/2)'    # Average case
+                    worst_space = 'O(1)'   # No extra space needed
+                    best_space = 'O(1)'
+                    avg_space = 'O(1)'
+                else:
+                    worst_time = analysis_result.get('worst_time', 'O(1)')
+                    best_time = analysis_result.get('best_time', worst_time)
+                    avg_time = analysis_result.get('average_time', worst_time)
+                    worst_space = analysis_result.get('worst_space', 'O(1)')
+                    best_space = analysis_result.get('best_space', worst_space)
+                    avg_space = analysis_result.get('average_space', worst_space)
+                
+                # Calculate estimated execution times for different input sizes
+                input_sizes = [10, 100, 1000, 10000]
+                time_estimates = {
+                    'best': {str(n): format_time(estimate_execution_time(best_time, n)) for n in input_sizes},
+                    'average': {str(n): format_time(estimate_execution_time(avg_time, n)) for n in input_sizes},
+                    'worst': {str(n): format_time(estimate_execution_time(worst_time, n)) for n in input_sizes}
                 }
                 
-                space_complexity = {
-                    'best': analysis_result.get('best_space', 'O(1)'),
-                    'average': analysis_result.get('average_space', 'O(1)'),
-                    'worst': analysis_result.get('worst_space', 'O(1)')
-                }
-                
-                # Generate summary based on the analysis
-                summary = generate_complexity_summary(analysis_result)
-                
+                # Format the response to match the frontend expectations
                 return jsonify({
-                    'time_complexity': time_complexity,
-                    'space_complexity': space_complexity,
-                    'summary': summary
+                    'timeComplexity': worst_time,  # Default to worst case for overall
+                    'spaceComplexity': worst_space,
+                    'bestTimeComplexity': best_time,
+                    'averageTimeComplexity': avg_time,
+                    'worstTimeComplexity': worst_time,
+                    'bestSpaceComplexity': best_space,
+                    'averageSpaceComplexity': avg_space,
+                    'worstSpaceComplexity': worst_space,
+                    'timeEstimates': time_estimates,
+                    'logs': [
+                        {
+                            'line': line_num,
+                            'code': line,
+                            'complexity': get_line_complexity(line, analysis_result),
+                            'explanation': get_line_explanation(line, analysis_result)
+                        }
+                        for line_num, line in non_empty_lines
+                    ]
                 })
                 
             except Exception as e:
@@ -98,6 +186,133 @@ def analyze_code():
         print(f"Error in analyze_code: {str(e)}", file=sys.stderr)
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+def get_line_complexity(line, analysis_result):
+    """Determine the complexity of a single line of code."""
+    line = line.strip()
+    
+    # Skip empty lines, comments, and brackets
+    if (not line or 
+        line.startswith('//') or 
+        line.startswith('/*') or 
+        line.startswith('*/') or
+        line in ['{', '}', ';']):
+        return None
+    
+    # Skip function declarations and variable declarations
+    if line.startswith('void ') or line.startswith('int ') or line.startswith('#include'):
+        return None
+    
+    # Check for classic algorithm patterns
+    if 'quickSort' in line or 'partition' in line:
+        if 'quickSort' in line:
+            return 'O(n log n)'  # Best/average case for Quick Sort
+        return 'O(n)'  # Partition operation
+    
+    if 'mergeSort' in line or 'merge(' in line:
+        if 'mergeSort' in line:
+            return 'O(n log n)'  # Merge Sort complexity
+        return 'O(n)'  # Merge operation
+    
+    if 'bubbleSort' in line:
+        return 'O(n²)'  # Bubble Sort complexity
+    
+    if 'binarySearch' in line:
+        return 'O(log n)'  # Binary Search complexity
+    
+    # Check for recursive calls
+    if '(' in line and ')' in line and not any(keyword in line for keyword in ['if', 'for', 'while']):
+        # Check if it's a recursive call (function calling itself)
+        func_match = re.search(r'(\w+)\s*\(', line)
+        if func_match:
+            func_name = func_match.group(1)
+            # Look for function declaration in previous lines
+            for prev_line in analysis_result.get('code_lines', []):
+                if prev_line.startswith(('int ', 'void ')) and func_name in prev_line:
+                    # Check for tree recursion (multiple recursive calls)
+                    if '+' in line and func_name in line.split('+')[1]:
+                        return 'O(2^n)'  # Tree recursion like Fibonacci
+                    return 'O(n)'  # Basic linear recursion
+    
+    # Check for loop patterns
+    if 'for' in line:
+        # Check for division in loop condition
+        if '/2' in line or '/ 2' in line:
+            return 'O(n/2)'  # This will be simplified to O(n) in the overall analysis
+        if 'i++' in line or 'i--' in line:
+            return 'O(n)'
+        elif 'i *= 2' in line or 'i /= 2' in line:
+            return 'O(log n)'
+    
+    # Check for nested loops
+    if 'for' in line and 'for' in line.split('{')[0]:
+        return 'O(n²)'
+    
+    # Default for simple operations
+    return 'O(1)'
+
+def get_line_explanation(line, analysis_result):
+    """Generate an explanation for the complexity of a line."""
+    line = line.strip()
+    
+    # Skip empty lines, comments, and brackets
+    if (not line or 
+        line.startswith('//') or 
+        line.startswith('/*') or 
+        line.startswith('*/') or
+        line in ['{', '}', ';']):
+        return None
+    
+    # Skip function declarations and variable declarations
+    if line.startswith('void ') or line.startswith('int ') or line.startswith('#include'):
+        return None
+    
+    # Generate explanations based on the line content
+    if 'quickSort' in line or 'partition' in line:
+        if 'quickSort' in line:
+            return "Quick Sort recursive call (O(n log n) best/average case, O(n²) worst case)"
+        return "Partition operation (O(n) time complexity)"
+    
+    if 'mergeSort' in line or 'merge(' in line:
+        if 'mergeSort' in line:
+            return "Merge Sort recursive call (O(n log n) time complexity)"
+        return "Merge operation (O(n) time complexity)"
+    
+    if 'bubbleSort' in line:
+        return "Bubble Sort operation (O(n²) time complexity)"
+    
+    if 'binarySearch' in line:
+        return "Binary Search operation (O(log n) time complexity)"
+    
+    if 'for' in line:
+        if '/2' in line or '/ 2' in line:
+            return "Linear iteration over n/2 elements (simplified to O(n) in Big O notation)"
+        if 'i++' in line or 'i--' in line:
+            return "Linear iteration over n elements"
+        elif 'i *= 2' in line or 'i /= 2' in line:
+            return "Logarithmic iteration (halving/doubling)"
+        elif 'for' in line.split('{')[0]:
+            return "Nested loop iteration"
+    
+    if 'while' in line:
+        return "Loop iteration with condition"
+    
+    # Check for recursive calls
+    if '(' in line and ')' in line and not any(keyword in line for keyword in ['if', 'for', 'while']):
+        func_match = re.search(r'(\w+)\s*\(', line)
+        if func_match:
+            func_name = func_match.group(1)
+            # Look for function declaration in previous lines
+            for prev_line in analysis_result.get('code_lines', []):
+                if prev_line.startswith(('int ', 'void ')) and func_name in prev_line:
+                    # Check for tree recursion (multiple recursive calls)
+                    if '+' in line and func_name in line.split('+')[1]:
+                        return f"Tree recursive call to {func_name} (exponential growth, O(2^n) time complexity)"
+                    return f"Recursive call to {func_name} (adds O(n) time and space complexity)"
+        return "Function call"
+    
+    # Default for simple operations
+    return "Simple operation (constant time)"
 
 def generate_complexity_summary(analysis_result):
     """Generate a human-readable summary of the complexity analysis."""
@@ -127,68 +342,42 @@ def generate_complexity_summary(analysis_result):
     
     return " ".join(summary_parts)
 
-@app.route('/generate-report', methods=['POST'])
-def generate_report():
-    try:
-        data = request.get_json()
-        if not data or 'analysis' not in data:
-            return jsonify({'error': 'No analysis data provided'}), 400
+def estimate_execution_time(complexity, n=1000):
+    """Estimate execution time based on complexity and input size."""
+    # Assuming each basic operation takes 1 nanosecond
+    base_time = 1e-9  # 1 nanosecond
+    
+    if complexity == 'O(1)':
+        return base_time
+    elif complexity == 'O(log n)':
+        return base_time * math.log2(n)
+    elif complexity == 'O(n)':
+        return base_time * n
+    elif complexity == 'O(n log n)':
+        return base_time * n * math.log2(n)
+    elif complexity == 'O(n²)':
+        return base_time * n * n
+    elif complexity == 'O(2^n)':
+        return base_time * math.pow(2, min(n, 10))  # Cap exponential growth
+    else:
+        return base_time * n
 
-        analysis = data['analysis']
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
-            c = canvas.Canvas(tmp.name, pagesize=letter)
-            width, height = letter
-
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(50, height - 50, "Code Complexity Analysis Report")
-
-            c.setFont("Helvetica-Bold", 14)
-            y = height - 100
-            c.drawString(50, y, "Overall Complexity Analysis")
-            y -= 30
-            data = [
-                ["Case", "Time Complexity", "Space Complexity"],
-                ["Best Case", analysis['time_complexity']['best'], analysis['space_complexity']['best']],
-                ["Average Case", analysis['time_complexity']['average'], analysis['space_complexity']['average']],
-                ["Worst Case", analysis['time_complexity']['worst'], analysis['space_complexity']['worst']]
-            ]
-            table = Table(data, colWidths=[100, 150, 150])
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            table.wrapOn(c, width - 100, height)
-            table.drawOn(c, 50, y - 100)
-
-            y -= 150
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(50, y, "Summary Explanation")
-            y -= 30
-            c.setFont("Helvetica", 12)
-            c.drawString(50, y, analysis['summary'])
-
-            c.save()
-            with open(tmp.name, 'rb') as pdf_file:
-                pdf_data = pdf_file.read()
-            os.unlink(tmp.name)
-            return jsonify({
-                'pdf_data': pdf_data.hex(),
-                'filename': 'complexity_analysis.pdf'
-            })
-    except Exception as e:
-        print(f"Error in generate_report: {str(e)}", file=sys.stderr)
-        print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+def format_time(seconds):
+    """Format time in appropriate units."""
+    if seconds < 1e-9:
+        return f"{seconds * 1e12:.2f} picoseconds"
+    elif seconds < 1e-6:
+        return f"{seconds * 1e9:.2f} nanoseconds"
+    elif seconds < 1e-3:
+        return f"{seconds * 1e6:.2f} microseconds"
+    elif seconds < 1:
+        return f"{seconds * 1e3:.2f} milliseconds"
+    elif seconds < 60:
+        return f"{seconds:.2f} seconds"
+    elif seconds < 3600:
+        return f"{seconds / 60:.2f} minutes"
+    else:
+        return f"{seconds / 3600:.2f} hours"
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) 
+    app.run(port=5001, debug=True) 
