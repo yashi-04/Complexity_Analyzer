@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -fPIC -I/opt/homebrew/include
-LDFLAGS = -L/opt/homebrew/lib -ljson-c
+CFLAGS = -Wall -Wextra -fPIC -I/opt/homebrew/include -I/usr/local/include
+LDFLAGS = -L/opt/homebrew/lib -L/usr/local/lib -ljson-c
 
 TARGET = libanalyzer.dylib
 SRC = analyzer.c
